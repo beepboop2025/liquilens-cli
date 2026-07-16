@@ -1,0 +1,48 @@
+{
+  "name": "liquilens",
+  "version": "0.3.0",
+  "description": "LiquiLens Failure Radar in your terminal — live early-warning board for Indian institutions and FDIC-scored US banks, from public data",
+  "license": "SEE LICENSE IN LICENSE.md",
+  "homepage": "https://liquilens.in",
+  "author": "beepboop2025",
+  "keywords": [
+    "cli",
+    "tui",
+    "finance",
+    "risk",
+    "early-warning",
+    "bank-failure",
+    "fdic",
+    "rbi",
+    "liquidity",
+    "terminal-dashboard"
+  ],
+  "type": "module",
+  "bin": {
+    "liquilens": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "!dist/*.test.js",
+    "LICENSE.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc && node dist/cli.js",
+    "test": "tsc && node --test \"dist/*.test.js\"",
+    "prepare": "tsc"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "ink": "^5.2.0",
+    "react": "^18.3.1",
+    "undici": "^6.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^18.3.0",
+    "typescript": "^5.6.0"
+  }
+}
