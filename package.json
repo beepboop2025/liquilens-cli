@@ -29,7 +29,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc && node dist/cli.js",
-    "test": "tsc && node --test \"dist/*.test.js\"",
+    "test": "tsc && node --test dist/cache.test.js dist/format.test.js dist/riskBands.test.js dist/us.test.js",
     "prepare": "tsc"
   },
   "engines": {

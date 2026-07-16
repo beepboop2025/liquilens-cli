@@ -449,9 +449,9 @@ export default function App({ initialRegion = "in" }: { initialRegion?: Region }
     [region, loadIn, loadUs],
   );
 
+  // Initial load only — later loads are user- or timer-driven.
   useEffect(() => {
     load(region);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
     const t = setInterval(() => load(region), REFRESH_MS);
