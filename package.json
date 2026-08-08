@@ -1,9 +1,16 @@
 {
   "name": "liquilens",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "LiquiLens Failure Radar in your terminal — live early-warning board for Indian institutions and FDIC-scored US banks, from public data",
   "license": "SEE LICENSE IN LICENSE.md",
-  "homepage": "https://liquilens.in",
+  "homepage": "https://liquilens.in/developers/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beepboop2025/liquilens-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/beepboop2025/liquilens-cli/issues"
+  },
   "author": "beepboop2025",
   "keywords": [
     "cli",
@@ -32,13 +39,17 @@
     "test": "tsc && node --test dist/cache.test.js dist/format.test.js dist/riskBands.test.js dist/us.test.js",
     "prepare": "tsc"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "engines": {
     "node": ">=18.17"
   },
   "dependencies": {
     "ink": "^5.2.0",
     "react": "^18.3.1",
-    "undici": "^6.21.0"
+    "undici": "^6.28.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

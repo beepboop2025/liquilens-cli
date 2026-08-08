@@ -5,6 +5,10 @@ Claude Code / htop. Zero keys required: it reads the same public, no-auth
 endpoints that power the web board, and keeps working offline from a cached
 snapshot.
 
+Need the radar on your own counterparty or borrower book? A fixed-scope,
+self-hosted proof pilot is available at
+[liquilens.in/pilot](https://liquilens.in/pilot/).
+
 ```
 ◆ LIQUILENS · Failure Radar · IN/US (t to switch)
 market regime SHIFT (log-SR 1.16, last change 13d ago) ███▁▁▂▂▂ · 2026-07-16
@@ -25,12 +29,26 @@ Two boards, one command:
 
 ## Install
 
+Run once without keeping an install:
+
 ```bash
-cd cli
-npm install
-npm link        # puts `liquilens` on your PATH
-liquilens             # India board
-liquilens --region us # US board
+npx --yes github:beepboop2025/liquilens-cli
+```
+
+Or keep the command on your PATH:
+
+```bash
+npm install --global github:beepboop2025/liquilens-cli
+liquilens               # India board
+liquilens --region us   # US board
+```
+
+From a source checkout:
+
+```bash
+npm ci
+npm link
+liquilens
 ```
 
 ## Modes
@@ -78,8 +96,15 @@ liquilens --fail-on red > /tmp/board.txt || mail -s "LiquiLens RED" me@x < /tmp/
   still renders with a "regime unavailable" note.
 - **Tests + CI**: pure logic (columns, sorting, filtering, viewport, risk
   bands, sparkline, US formatting, cache) is unit-tested (`npm test`);
-  `.github/workflows/cli.yml` runs build + tests + live smokes on Node
+  CI runs build + tests + live smokes on Node
   18/20/22.
+
+## Privacy
+
+The CLI sends no cookies, device identifiers, installation IDs, or command
+analytics. API requests carry the aggregate product-surface label `cli` so the
+service can count successful board reads. Arguments, filters, cache contents,
+and machine details are never sent as analytics.
 
 ## Exit codes
 

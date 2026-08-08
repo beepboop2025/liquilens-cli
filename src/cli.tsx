@@ -9,6 +9,7 @@ import {
   fetchRegime,
   fetchUSBoard,
   setApiBase,
+  setClientVersion,
   getApiBase,
   DEFAULT_API,
   type Board,
@@ -42,6 +43,7 @@ process.on("unhandledRejection", crash);
 
 const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
+setClientVersion(version);
 
 const HELP = `liquilens ${version} — LiquiLens Failure Radar in your terminal
 

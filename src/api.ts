@@ -8,6 +8,7 @@ import {
 export const DEFAULT_API = "https://api.liquilens.in";
 
 let apiBase = process.env.LIQUILENS_API ?? DEFAULT_API;
+let clientVersion = "dev";
 
 export function setApiBase(url: string): void {
   apiBase = url.replace(/\/+$/, "");
@@ -15,6 +16,10 @@ export function setApiBase(url: string): void {
 
 export function getApiBase(): string {
   return apiBase;
+}
+
+export function setClientVersion(version: string): void {
+  clientVersion = version;
 }
 
 const CONNECT_OPTS = {
@@ -149,7 +154,13 @@ async function getJson<T>(path: string): Promise<T> {
       const res = await undiciFetch(`${apiBase}${path}`, {
         dispatcher,
         signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS),
-        headers: { "user-agent": "liquilens-cli" },
+        // These identify the product surface, not the person or machine. The
+        // API aggregates successful board reads by this allow-listed value;
+        // there is no client-side telemetry, cookie, or installation ID.
+        headers: {
+          "user-agent": `liquilens-cli/${clientVersion}`,
+          "x-liquilens-client": "cli",
+        },
       });
       if (res.status === 429 || res.status >= 500) {
         lastErr = new Error(`HTTP ${res.status} from ${path}`);
