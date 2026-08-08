@@ -41,6 +41,7 @@ Or keep the command on your PATH:
 npm install --global liquilens
 liquilens               # India board
 liquilens --region us   # US board
+liquilens --record      # evidence status and eligibility, all markets
 ```
 
 From a source checkout:
@@ -59,6 +60,11 @@ liquilens
 - **`--plain`** (automatic when piped): one-shot ANSI-free table — safe for
   scripts, cron mails, CI logs.
 - **`--json`**: one-shot machine-readable dump (rows + `risk_band` + regime).
+- **`--record`**: one-shot historical-evidence ledger for India, the US, and
+  Europe. It prints each market's construction/case-file status plus
+  `validated_backtest_eligible` and `real_money_eligible`; add `--json` to
+  preserve the served `/api/evidence/markets` payload exactly. It cannot be
+  combined with `--region` or `--fail-on`.
 - **`--fail-on amber|red`**: alerting for cron/CI — exits 3 when any Indian
   institution is at/above the band. (India only: US scores are within-quarter
   percentile ranks — a relative leaderboard — so an absolute threshold would
@@ -67,6 +73,10 @@ liquilens
 ```bash
 # cron: mail me the board only when something turns red
 liquilens --fail-on red > /tmp/board.txt || mail -s "LiquiLens RED" me@x < /tmp/board.txt
+
+# audit the historical-evidence boundary without opening the web app
+liquilens --record
+liquilens --record --json | jq '.markets[] | {name, historical_evidence}'
 ```
 
 ## Keys

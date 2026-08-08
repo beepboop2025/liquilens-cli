@@ -1,4 +1,10 @@
-import type { Board, MarketRegime, USBoard } from "./api.js";
+import type {
+  Board,
+  EvidenceMarketsResponse,
+  HistoricalEvidenceStatus,
+  MarketRegime,
+  USBoard,
+} from "./api.js";
 import {
   cell,
   computeCols,
@@ -166,4 +172,40 @@ export function renderJson(snap: Snapshot): string {
     null,
     2,
   );
+}
+
+function evidenceFlag(value: boolean | undefined): string {
+  if (value === true) return "YES";
+  if (value === false) return "NO";
+  return "NOT STATED";
+}
+
+/** One-shot evidence boundary for humans; no eligibility is inferred. */
+export function renderEvidenceRecord(record: EvidenceMarketsResponse): string {
+  const lines = [
+    "LIQUILENS · HISTORICAL EVIDENCE STATUS",
+    "Eligibility is served per market; construction-PIT diagnostics are not promoted by the CLI.",
+    "",
+  ];
+  for (const market of record.markets) {
+    const evidence = market.historical_evidence ?? ({} as HistoricalEvidenceStatus);
+    lines.push(market.name.toUpperCase());
+    lines.push(`  kind: ${market.kind}`);
+    lines.push(`  ${market.headline}`);
+    lines.push(`  status: ${evidence.status ?? "NOT_STATED"}`);
+    lines.push(
+      "  validated-backtest eligible: " +
+        evidenceFlag(evidence.validated_backtest_eligible) +
+        " · real-money eligible: " +
+        evidenceFlag(evidence.real_money_eligible),
+    );
+    lines.push("");
+  }
+  lines.push("source: https://api.liquilens.in/api/evidence/markets");
+  return lines.join("\n");
+}
+
+/** Preserve the API payload exactly for agents and scripts. */
+export function renderEvidenceJson(record: EvidenceMarketsResponse): string {
+  return JSON.stringify(record, null, 2);
 }

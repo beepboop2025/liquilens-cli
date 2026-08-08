@@ -6,6 +6,7 @@ import { render } from "ink";
 import App from "./App.js";
 import {
   fetchBoard,
+  fetchEvidenceMarkets,
   fetchRegime,
   fetchUSBoard,
   setApiBase,
@@ -23,7 +24,14 @@ import {
   describeAge,
   type Region,
 } from "./cache.js";
-import { renderJson, renderPlain, worstBand, type Snapshot } from "./plain.js";
+import {
+  renderEvidenceJson,
+  renderEvidenceRecord,
+  renderJson,
+  renderPlain,
+  worstBand,
+  type Snapshot,
+} from "./plain.js";
 import { bandAtLeast, type RiskBand } from "./riskBands.js";
 
 // Some networks blackhole IPv6 (Node's fetch hangs while curl works);
@@ -55,6 +63,9 @@ plain table when piped. Data comes from public, no-auth LiquiLens endpoints.
 Options:
   --region <in|us>   board to show (default in). in = India institutions,
                      us = FDIC-scored US banks (undertow engine)
+  --record           one-shot historical-evidence status for India, the US,
+                     and Europe, including validated/real-money eligibility.
+                     Cannot be combined with --region or --fail-on.
   --plain            one-shot ANSI-free table (default when stdout is not a TTY)
   --json             one-shot machine-readable JSON dump
   --fail-on <band>   exit 3 if any institution is at/above band (amber|red).
@@ -82,6 +93,7 @@ interface Args {
   mode: "tui" | "plain" | "json";
   region: Region;
   failOn: RiskBand | null;
+  record: boolean;
 }
 
 export function parseArgs(
@@ -90,7 +102,9 @@ export function parseArgs(
 ): Args | { exit: string } {
   let mode: "tui" | "plain" | "json" | null = null;
   let region: Region = "in";
+  let regionExplicit = false;
   let failOn: RiskBand | null = null;
+  let record = false;
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]!;
     switch (arg) {
@@ -106,11 +120,15 @@ export function parseArgs(
       case "--json":
         mode = "json";
         break;
+      case "--record":
+        record = true;
+        break;
       case "--region": {
         const r = argv[++i];
         if (r !== "in" && r !== "us")
           fail(`--region must be "in" or "us", got "${r ?? ""}"`, 2);
         region = r;
+        regionExplicit = true;
         break;
       }
       case "--fail-on": {
@@ -138,8 +156,13 @@ export function parseArgs(
         "threshold would always fire",
       2,
     );
+  if (record && regionExplicit)
+    fail("--record cannot be combined with --region; it already covers every market", 2);
+  if (record && failOn)
+    fail("--record cannot be combined with --fail-on; evidence eligibility is not a risk band", 2);
+  if (record && mode === null) mode = "plain";
   if (failOn && mode === null) mode = "plain";
-  return { mode: mode ?? (isTTY ? "tui" : "plain"), region, failOn };
+  return { mode: mode ?? (isTTY ? "tui" : "plain"), region, failOn, record };
 }
 
 async function snapshotOnce(region: Region): Promise<Snapshot> {
@@ -205,7 +228,22 @@ if ("exit" in parsed) {
   process.exit(0);
 }
 
-if (parsed.mode === "tui") {
+if (parsed.record) {
+  try {
+    const record = await fetchEvidenceMarkets();
+    console.log(
+      parsed.mode === "json"
+        ? renderEvidenceJson(record)
+        : renderEvidenceRecord(record),
+    );
+  } catch (err) {
+    fail(
+      `could not read historical evidence from ${getApiBase()} ` +
+        `(${err instanceof Error ? err.message : String(err)})`,
+      1,
+    );
+  }
+} else if (parsed.mode === "tui") {
   render(<App initialRegion={parsed.region} />);
 } else {
   const snap = await snapshotOnce(parsed.region);

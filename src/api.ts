@@ -140,6 +140,26 @@ export interface NewsSignal {
   basis: string[];
 }
 
+export interface HistoricalEvidenceStatus {
+  status: string;
+  validated_backtest_eligible: boolean;
+  real_money_eligible: boolean;
+  [key: string]: unknown;
+}
+
+export interface EvidenceMarket {
+  key: string;
+  name: string;
+  kind: string;
+  headline: string;
+  institutions: number;
+  historical_evidence: HistoricalEvidenceStatus;
+}
+
+export interface EvidenceMarketsResponse {
+  markets: EvidenceMarket[];
+}
+
 const RETRIES = 3;
 const ATTEMPT_TIMEOUT_MS = 15_000;
 
@@ -184,3 +204,5 @@ export const fetchRegime = () =>
   getJson<MarketRegime>("/api/public-signals/market-regime");
 export const fetchNews = (slug: string) =>
   getJson<NewsSignal>(`/api/public-signals/news/${encodeURIComponent(slug)}`);
+export const fetchEvidenceMarkets = () =>
+  getJson<EvidenceMarketsResponse>("/api/evidence/markets");
