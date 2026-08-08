@@ -26,5 +26,7 @@ jobs:
         run: |
           node dist/cli.js --plain > /tmp/liquilens-india.txt
           node dist/cli.js --region us --plain > /tmp/liquilens-us.txt
+          node dist/cli.js --record > /tmp/liquilens-record.txt
           head -5 /tmp/liquilens-india.txt
           head -5 /tmp/liquilens-us.txt
+          head -8 /tmp/liquilens-record.txt
