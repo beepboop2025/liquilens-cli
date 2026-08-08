@@ -32,13 +32,13 @@ Two boards, one command:
 Run once without keeping an install:
 
 ```bash
-npx --yes github:beepboop2025/liquilens-cli
+npx liquilens
 ```
 
 Or keep the command on your PATH:
 
 ```bash
-npm install --global github:beepboop2025/liquilens-cli
+npm install --global liquilens
 liquilens               # India board
 liquilens --region us   # US board
 ```
