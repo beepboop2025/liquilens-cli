@@ -42,7 +42,7 @@ import {
   type USCols,
   type USSortMode,
 } from "./format.js";
-import { riskBand, usRiskBandByRank, bandColor } from "./riskBands.js";
+import { pausedLine, riskBand, tiersPublished, usRiskBandByRank, bandColor } from "./riskBands.js";
 
 const ACCENT = "#9184d9"; // Nocturne
 const DIM = "gray";
@@ -154,23 +154,26 @@ function InRow({
   row,
   selected,
   cols,
+  showTiers,
 }: {
   row: BoardRow;
   selected: boolean;
   cols: Cols;
+  showTiers: boolean;
 }) {
-  const band = riskBand(row);
+  // Bands, grades and their colours only while the API publishes tiers.
+  const color = showTiers ? bandColor[riskBand(row)] : undefined;
   const move = movement(row.movement.delta_pd_12m);
   return (
     <Box>
       <Text color={selected ? ACCENT : DIM}>{selected ? "❯ " : "  "}</Text>
-      <Text color={bandColor[band]} bold={selected} inverse={selected}>
+      <Text color={color} bold={selected} inverse={selected}>
         {cell(row.name, cols.name)}
       </Text>
       <Text color={DIM}>{cell(row.inst_type, cols.type)}</Text>
-      <Text color={bandColor[band]}>{cell(row.grade, cols.grade)}</Text>
+      {showTiers && <Text color={color}>{cell(row.grade ?? "", cols.grade)}</Text>}
       <Text>{cell(String(row.score), cols.score)}</Text>
-      <Text color={bandColor[band]}>{cell(pct(row.hazard.pd_12m), cols.pd)}</Text>
+      <Text color={color}>{cell(pct(row.hazard.pd_12m), cols.pd)}</Text>
       <Text color={moveColor(move.dir)}>{cell(move.text, cols.move)}</Text>
       <Text color={fundColor(row.funding.band)}>
         {fundingLabel(row.funding.band)}
@@ -243,15 +246,17 @@ function NewsLine({ news }: { news: NewsSignal | "loading" | "error" | null }) {
 function InDetail({
   row,
   news,
+  showTiers,
 }: {
   row: BoardRow;
   news: NewsSignal | "loading" | "error" | null;
+  showTiers: boolean;
 }) {
-  const band = riskBand(row);
+  const color = showTiers ? bandColor[riskBand(row)] : undefined;
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={ACCENT} paddingX={1}>
       <Box justifyContent="space-between" gap={2}>
-        <Text bold color={bandColor[band]}>
+        <Text bold color={color}>
           {row.name}
         </Text>
         <Text color={DIM}>
@@ -260,12 +265,12 @@ function InDetail({
         </Text>
       </Box>
       <Text>
-        <Text color={DIM}>grade </Text>
-        <Text bold>{row.grade}</Text>
-        <Text color={DIM}>  score </Text>
+        {showTiers && <Text color={DIM}>grade </Text>}
+        {showTiers && <Text bold>{row.grade ?? ""}</Text>}
+        <Text color={DIM}>{showTiers ? "  score " : "score "}</Text>
         <Text bold>{row.score}</Text>
-        <Text color={DIM}>  PD 12/24/36m </Text>
-        <Text bold color={bandColor[band]}>
+        <Text color={DIM}>{showTiers ? "  PD 12/24/36m " : "  PD 12/24/36m, research only "}</Text>
+        <Text bold color={color}>
           {pct(row.hazard.pd_12m)} / {pct(row.hazard.pd_24m)} /{" "}
           {pct(row.hazard.pd_36m)}
         </Text>
@@ -562,10 +567,12 @@ export default function App({ initialRegion = "in" }: { initialRegion?: Region }
   const cols = useMemo(() => computeCols(width), [width]);
   const usCols = useMemo(() => computeUSCols(width), [width]);
   const hasData = region === "in" ? board !== null : usBoard !== null;
+  const showTiers = tiersPublished(board);
   const regionStale = staleFrom[region];
   const sortMode = region === "in" ? inSort : usSort;
 
-  const chrome = 7 + (showDetail ? 13 : 0) + (regionStale ? 1 : 0);
+  const pausedNotice = region === "in" && board !== null && !showTiers ? 1 : 0;
+  const chrome = 7 + (showDetail ? 13 : 0) + (regionStale ? 1 : 0) + pausedNotice;
   const visible = Math.max(3, height - chrome);
   const vp = viewport(rowCount, visible, cursor);
 
@@ -591,6 +598,9 @@ export default function App({ initialRegion = "in" }: { initialRegion?: Region }
         </Text>
       )}
       {loading && !hasData && <Text color={DIM}>⠿ loading live board…</Text>}
+      {region === "in" && board !== null && !showTiers && (
+        <Text color={bandColor.amber}>{pausedLine(board)}</Text>
+      )}
       {hasData && (
         <Box flexDirection="column" marginTop={1}>
           {region === "in" ? (
@@ -598,7 +608,7 @@ export default function App({ initialRegion = "in" }: { initialRegion?: Region }
               {"  "}
               {cell("INSTITUTION", cols.name)}
               {cell("TYPE", cols.type)}
-              {cell("GRADE", cols.grade)}
+              {showTiers && cell("GRADE", cols.grade)}
               {cell("SCORE", cols.score)}
               {cell("PD 12M", cols.pd)}
               {cell("Δ PD", cols.move)}
@@ -626,6 +636,7 @@ export default function App({ initialRegion = "in" }: { initialRegion?: Region }
                     row={row}
                     selected={vp.start + i === cursor}
                     cols={cols}
+                    showTiers={showTiers}
                   />
                 ))
             : usRows
@@ -645,7 +656,7 @@ export default function App({ initialRegion = "in" }: { initialRegion?: Region }
           )}
           {showDetail && region === "in" && selectedIn && (
             <Box marginTop={1}>
-              <InDetail row={selectedIn} news={news} />
+              <InDetail row={selectedIn} news={news} showTiers={showTiers} />
             </Box>
           )}
           {showDetail && region === "us" && usRows[cursor] && (

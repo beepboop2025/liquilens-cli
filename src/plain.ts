@@ -1,5 +1,6 @@
 import type {
   Board,
+  BoardRow,
   EvidenceMarketsResponse,
   HistoricalEvidenceStatus,
   MarketRegime,
@@ -18,7 +19,7 @@ import {
   sortRows,
   sortUSRows,
 } from "./format.js";
-import { riskBand, usRiskBandByRank, type RiskBand } from "./riskBands.js";
+import { pausedLine, riskBand, tiersPublished, usRiskBandByRank, type RiskBand } from "./riskBands.js";
 
 export interface StaleInfo {
   savedAt: string;
@@ -35,13 +36,15 @@ function staleLine(stale: StaleInfo | null): string[] {
     : [];
 }
 
-/** Worst risk band on the board — drives --fail-on exit codes. */
-export function worstBand(snap: Snapshot): RiskBand {
+/** Worst risk band on the board, which drives --fail-on exit codes. Null for
+ *  India while review tiers are paused: there is no band to compare. */
+export function worstBand(snap: Snapshot): RiskBand | null {
   if (snap.region === "us") {
     // US board is a relative leaderboard; callers must not use it for
     // absolute alerting (enforced at arg-parse time).
     return snap.board.board.length > 0 ? "red" : "green";
   }
+  if (!tiersPublished(snap.board)) return null;
   let worst: RiskBand = "green";
   for (const row of snap.board.rows) {
     const b = riskBand(row);
@@ -66,31 +69,34 @@ export function renderPlain(snap: Snapshot, width = 100): string {
     );
   }
   lines.push(...staleLine(snap.stale));
+  const published = tiersPublished(snap.board);
+  if (!published) lines.push(pausedLine(snap.board));
   lines.push("");
   lines.push(
     "  " +
       cell("INSTITUTION", cols.name) +
       cell("TYPE", cols.type) +
-      cell("GRADE", cols.grade) +
+      (published ? cell("GRADE", cols.grade) : "") +
       cell("SCORE", cols.score) +
-      cell("PD 12M", cols.pd) +
+      cell(published ? "PD 12M" : "PD 12M*", cols.pd) +
       cell("Δ PD", cols.move) +
-      "FUNDING  BAND",
+      (published ? "FUNDING  BAND" : "FUNDING"),
   );
   for (const row of sortRows(snap.board.rows, "risk")) {
-    const band = riskBand(row);
     lines.push(
       "  " +
         cell(row.name, cols.name) +
         cell(row.inst_type, cols.type) +
-        cell(row.grade, cols.grade) +
+        (published ? cell(row.grade ?? "", cols.grade) : "") +
         cell(String(row.score), cols.score) +
         cell(pct(row.hazard.pd_12m), cols.pd) +
         cell(movement(row.movement.delta_pd_12m).text, cols.move) +
-        cell(fundingLabel(row.funding.band), 9) +
-        band.toUpperCase(),
+        (published
+          ? cell(fundingLabel(row.funding.band), 9) + riskBand(row).toUpperCase()
+          : fundingLabel(row.funding.band)),
     );
   }
+  if (!published) lines.push("* research only while review tiers are paused");
   lines.push("");
   lines.push(`${snap.board.rows.length} institutions · liquilens.in`);
   return lines.join("\n");
@@ -141,6 +147,13 @@ function renderPlainUS(
   return lines.join("\n");
 }
 
+/** A row as research only: no grade letter even from an older cached board. */
+function researchRow(r: BoardRow): Record<string, unknown> {
+  const withoutGrade = <T extends object>(o: T) =>
+    Object.fromEntries(Object.entries(o).filter(([k]) => k !== "grade" && k !== "tier"));
+  return { ...withoutGrade(r), hazard: withoutGrade(r.hazard), pd_research_only: true };
+}
+
 /** Machine-readable dump for `--json`. */
 export function renderJson(snap: Snapshot): string {
   if (snap.region === "us") {
@@ -158,16 +171,17 @@ export function renderJson(snap: Snapshot): string {
       2,
     );
   }
+  const published = tiersPublished(snap.board);
   return JSON.stringify(
     {
       region: "in",
       as_of: snap.board.as_of,
       stale: snap.stale ? { cached_at: snap.stale.savedAt } : null,
       market_regime: snap.regime,
-      rows: sortRows(snap.board.rows, "risk").map((r) => ({
-        ...r,
-        risk_band: riskBand(r),
-      })),
+      tier_publication: snap.board.tier_publication ?? null,
+      rows: sortRows(snap.board.rows, "risk").map((r) =>
+        published ? { ...r, risk_band: riskBand(r) } : researchRow(r),
+      ),
     },
     null,
     2,
