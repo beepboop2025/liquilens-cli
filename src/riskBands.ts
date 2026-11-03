@@ -1,4 +1,21 @@
-import type { BoardRow } from "./api.js";
+import type { Board, BoardRow } from "./api.js";
+
+/**
+ * India risk bands, grade letters and their colours are shown only while the
+ * API says review tiers are published. A paused state, or an older payload
+ * that does not say, renders research-only probabilities instead.
+ */
+export function tiersPublished(board: Pick<Board, "tier_publication"> | null | undefined): boolean {
+  return board?.tier_publication?.state === "published";
+}
+
+/** One line stating the pause, in the API's own words when it sends them. */
+export function pausedLine(board: Pick<Board, "tier_publication"> | null | undefined): string {
+  const pub = board?.tier_publication;
+  const since = pub?.since ? ` since ${pub.since}` : "";
+  return `review tiers paused${since}: ${pub?.label ?? "tiers paused, research only"}; ` +
+    "no grade, band or colour is shown and PDs are research only";
+}
 
 export type RiskBand = "red" | "amber" | "green";
 

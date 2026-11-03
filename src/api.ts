@@ -50,12 +50,14 @@ export interface BoardRow {
   quarter: string;
   age_months: number;
   score: number;
-  grade: string;
+  /** Served only while review tiers are published. */
+  grade?: string;
   hazard: {
     pd_12m: number;
     pd_24m: number;
     pd_36m: number;
-    grade: string;
+    /** Served only while review tiers are published. */
+    grade?: string;
     drivers: Record<string, number>;
     basis: string[];
   };
@@ -85,10 +87,20 @@ export interface BoardRow {
   } | null;
 }
 
+/** The API's one tier-publication switch, served with every India board. */
+export interface TierPublication {
+  state: string;
+  since: string;
+  label: string;
+  reason: string;
+  revalidation_condition: string;
+}
+
 export interface Board {
   as_of: string;
   rows: BoardRow[];
   method_note?: string;
+  tier_publication?: TierPublication;
 }
 
 export interface MarketRegime {
