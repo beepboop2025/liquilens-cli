@@ -32,7 +32,7 @@ export type Snapshot =
 
 function staleLine(stale: StaleInfo | null): string[] {
   return stale
-    ? [`WARNING: live API unreachable — cached data from ${stale.description}`]
+    ? [`WARNING: live API unreachable; cached data from ${stale.description}`]
     : [];
 }
 

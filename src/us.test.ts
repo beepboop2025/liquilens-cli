@@ -38,8 +38,8 @@ test("fmtAssets scales thousands-USD to M/B/T", () => {
 test("pct1 treats input as fraction; rawPct as already-percent", () => {
   assert.equal(pct1(0.1701), "17.0%");
   assert.equal(rawPct(4.0004), "4.00%");
-  assert.equal(pct1(null), "—");
-  assert.equal(rawPct(undefined), "—");
+  assert.equal(pct1(null), "n/a");
+  assert.equal(rawPct(undefined), "n/a");
 });
 
 test("usRiskBandByRank: top 10 red, next 20 amber, rest green", () => {
