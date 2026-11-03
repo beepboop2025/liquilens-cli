@@ -35,14 +35,14 @@ import {
 import { bandAtLeast, type RiskBand } from "./riskBands.js";
 
 // Some networks blackhole IPv6 (Node's fetch hangs while curl works);
-// prefer IPv4 first — undici's autoSelectFamily in api.ts covers the rest.
+// prefer IPv4 first; undici's autoSelectFamily in api.ts covers the rest.
 dns.setDefaultResultOrder("ipv4first");
 
 // A crash should read like a message, not a stack dump, and must not leave
 // the terminal in raw mode (Ink's unmount handles restore on normal exits).
 function crash(err: unknown): never {
   const msg = err instanceof Error ? err.message : String(err);
-  process.stderr.write(`\nliquilens: unexpected error — ${msg}\n`);
+  process.stderr.write(`\nliquilens: unexpected error: ${msg}\n`);
   process.stderr.write("Run again with --plain for a minimal path, or check --help.\n");
   process.exit(1);
 }
@@ -53,7 +53,7 @@ const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
 setClientVersion(version);
 
-const HELP = `liquilens ${version} — LiquiLens Failure Radar in your terminal
+const HELP = `liquilens ${version}: LiquiLens Failure Radar in your terminal
 
 Usage: liquilens [options]
 
@@ -69,7 +69,7 @@ Options:
   --plain            one-shot ANSI-free table (default when stdout is not a TTY)
   --json             one-shot machine-readable JSON dump
   --fail-on <band>   exit 3 if any institution is at/above band (amber|red).
-                     India board only — the US board is a relative leaderboard.
+                     India board only; the US board is a relative leaderboard.
                      Implies --plain unless --json is given. For cron/CI alerts.
                      While the API pauses India review tiers it exits 4
                      instead: there is no band to compare.

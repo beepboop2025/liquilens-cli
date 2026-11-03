@@ -4,11 +4,11 @@ export const pct = (x: number) => `${(x * 100).toFixed(2)}%`;
 
 /** Fraction -> "17.0%", tolerating missing values. */
 export const pct1 = (x: number | null | undefined) =>
-  x == null ? "—" : `${(x * 100).toFixed(1)}%`;
+  x == null ? "n/a" : `${(x * 100).toFixed(1)}%`;
 
 /** Value already in percent units (FDIC noncurrent_ratio: 4.0 = 4%). */
 export const rawPct = (x: number | null | undefined) =>
-  x == null ? "—" : `${x.toFixed(2)}%`;
+  x == null ? "n/a" : `${x.toFixed(2)}%`;
 
 /** Assets reported in USD thousands -> "$15.2B" / "$980M". */
 export function fmtAssets(usdK: number): string {
@@ -73,7 +73,7 @@ export function computeCols(termWidth: number): Cols {
   return { name, ...fixed };
 }
 
-/** Truncate to width (with ellipsis) then pad — cells never overflow. */
+/** Truncate to width (with ellipsis) then pad, so cells never overflow. */
 export function cell(text: string, width: number): string {
   if (text.length > width - 1) {
     return `${text.slice(0, Math.max(0, width - 2))}… `.padEnd(width);

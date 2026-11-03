@@ -41,7 +41,7 @@ test("PD thresholds: >=5% red, >=1.5% amber", () => {
   assert.equal(riskBand(row({ hazard: { pd_12m: 0.02, pd_24m: 0, pd_36m: 0, grade: "B", drivers: {}, basis: [] } })), "amber");
 });
 
-test("not_scored funding is NOT stress — stays green", () => {
+test("not_scored funding is NOT stress; stays green", () => {
   assert.equal(riskBand(row({ funding: { index: 0, band: "not_scored", flags: [], basis: [] } })), "green");
 });
 

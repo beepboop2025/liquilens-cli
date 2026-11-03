@@ -287,7 +287,7 @@ function InDetail({
           <Text color={bandColor.amber}> ⚑ {row.funding.flags.join(", ")}</Text>
         )}
         {row.funding.basis.length > 0 && (
-          <Text color={DIM}> — {row.funding.basis.join("; ")}</Text>
+          <Text color={DIM}> · {row.funding.basis.join("; ")}</Text>
         )}
       </Text>
       <Text>
@@ -454,7 +454,7 @@ export default function App({ initialRegion = "in" }: { initialRegion?: Region }
     [region, loadIn, loadUs],
   );
 
-  // Initial load only — later loads are user- or timer-driven.
+  // Initial load only: later loads are user- or timer-driven.
   useEffect(() => {
     load(region);
   }, []);
@@ -587,14 +587,14 @@ export default function App({ initialRegion = "in" }: { initialRegion?: Region }
       />
       {regionStale && (
         <Text color={bandColor.amber}>
-          ⚠ offline — showing cached board from{" "}
+          ⚠ offline: showing cached board from{" "}
           {describeAge(ageMinutes(regionStale))} (retrying every 5m, r to retry
           now)
         </Text>
       )}
       {error && (
         <Text color={bandColor.red}>
-          ✖ {error} — press r to retry, or set LIQUILENS_API / HTTPS_PROXY
+          ✖ {error}; press r to retry, or set LIQUILENS_API / HTTPS_PROXY
         </Text>
       )}
       {loading && !hasData && <Text color={DIM}>⠿ loading live board…</Text>}
