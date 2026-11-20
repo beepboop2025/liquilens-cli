@@ -5,8 +5,12 @@ import {
   fetchNews,
   fetchRegime,
   fetchUSBoard,
+  hasRadarDetail,
+  probabilities,
+  probabilityChange,
   type Board,
   type BoardRow,
+  type IndiaRow,
   type MarketRegime,
   type NewsSignal,
   type USBoard,
@@ -27,6 +31,7 @@ import {
   filterUSRows,
   fmtAssets,
   fundingLabel,
+  fundingSummary,
   movement,
   pct,
   pct1,
@@ -120,7 +125,7 @@ function Header({
         <Text color={DIM}> (t to switch)</Text>
       </Box>
       {region === "in" ? (
-        regime ? (
+        regime?.available ? (
           <Box>
             <Text color={DIM}>market regime </Text>
             <Text color={regimeColor(regime.regime)} bold>
@@ -136,7 +141,7 @@ function Header({
             )}
             <Text color={DIM}> · {regime.as_of}</Text>
           </Box>
-        ) : regimeError ? (
+        ) : regimeError || regime?.available === false ? (
           <Text color={DIM}>market regime unavailable right now</Text>
         ) : null
       ) : usBoard ? (
@@ -156,14 +161,15 @@ function InRow({
   cols,
   showTiers,
 }: {
-  row: BoardRow;
+  row: IndiaRow;
   selected: boolean;
   cols: Cols;
   showTiers: boolean;
 }) {
   // Bands, grades and their colours only while the API publishes tiers.
-  const color = showTiers ? bandColor[riskBand(row)] : undefined;
-  const move = movement(row.movement.delta_pd_12m);
+  const detailed = hasRadarDetail(row);
+  const color = showTiers && detailed ? bandColor[riskBand(row)] : undefined;
+  const move = movement(probabilityChange(row));
   return (
     <Box>
       <Text color={selected ? ACCENT : DIM}>{selected ? "❯ " : "  "}</Text>
@@ -173,10 +179,10 @@ function InRow({
       <Text color={DIM}>{cell(row.inst_type, cols.type)}</Text>
       {showTiers && <Text color={color}>{cell(row.grade ?? "", cols.grade)}</Text>}
       <Text>{cell(String(row.score), cols.score)}</Text>
-      <Text color={color}>{cell(pct(row.hazard.pd_12m), cols.pd)}</Text>
+      <Text color={color}>{cell(pct(probabilities(row).pd_12m), cols.pd)}</Text>
       <Text color={moveColor(move.dir)}>{cell(move.text, cols.move)}</Text>
-      <Text color={fundColor(row.funding.band)}>
-        {fundingLabel(row.funding.band)}
+      <Text color={detailed ? fundColor(row.funding.band) : DIM}>
+        {fundingSummary(row)}
       </Text>
     </Box>
   );
@@ -216,6 +222,7 @@ function NewsLine({ news }: { news: NewsSignal | "loading" | "error" | null }) {
   if (news === null) return null;
   if (news === "loading") return <Text color={DIM}>news watch loading…</Text>;
   if (news === "error") return <Text color={DIM}>news watch unavailable</Text>;
+  if ("not_computed" in news) return <Text color={DIM}>news watch: {news.not_computed}</Text>;
   const stressColor =
     news.news_stress >= 50
       ? bandColor.red
@@ -248,11 +255,13 @@ function InDetail({
   news,
   showTiers,
 }: {
-  row: BoardRow;
+  row: IndiaRow;
   news: NewsSignal | "loading" | "error" | null;
   showTiers: boolean;
 }) {
-  const color = showTiers ? bandColor[riskBand(row)] : undefined;
+  const detailed = hasRadarDetail(row);
+  const color = showTiers && detailed ? bandColor[riskBand(row)] : undefined;
+  const pd = probabilities(row);
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={ACCENT} paddingX={1}>
       <Box justifyContent="space-between" gap={2}>
@@ -260,8 +269,8 @@ function InDetail({
           {row.name}
         </Text>
         <Text color={DIM}>
-          {row.inst_type} · {row.quarter} · data as of {row.as_of} (
-          {row.age_months}mo old)
+          {row.inst_type} · {row.quarter} · data as of {row.as_of}
+          {detailed && ` (${row.age_months}mo old)`}
         </Text>
       </Box>
       <Text>
@@ -271,10 +280,23 @@ function InDetail({
         <Text bold>{row.score}</Text>
         <Text color={DIM}>{showTiers ? "  PD 12/24/36m " : "  PD 12/24/36m, research only "}</Text>
         <Text bold color={color}>
-          {pct(row.hazard.pd_12m)} / {pct(row.hazard.pd_24m)} /{" "}
-          {pct(row.hazard.pd_36m)}
+          {pct(pd.pd_12m)} / {pct(pd.pd_24m)} / {pct(pd.pd_36m)}
         </Text>
       </Text>
+      {detailed ? <InRiskInputs row={row} /> : (
+        <Box flexDirection="column">
+          <Text>Funding {fundingSummary(row)} · RBI zone {row.rbi_zone ?? "n/a"}</Text>
+          <Text color={DIM}>Detailed risk inputs are withheld in the public summary.</Text>
+        </Box>
+      )}
+      <NewsLine news={news} />
+    </Box>
+  );
+}
+
+function InRiskInputs({ row }: { row: BoardRow }) {
+  return (
+    <>
       {row.hazard.basis.length > 0 && (
         <Text color={DIM}>hazard basis: {row.hazard.basis.join("; ")}</Text>
       )}
@@ -315,8 +337,7 @@ function InDetail({
           <Text bold>{pct(row.market.pd_merton_1y)}</Text>
         </Text>
       )}
-      <NewsLine news={news} />
-    </Box>
+    </>
   );
 }
 

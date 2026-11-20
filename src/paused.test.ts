@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Board, BoardRow, TierPublication } from "./api.js";
+import type { Board, BoardRow, PublicBoardRow, TierPublication } from "./api.js";
+import { sortRows } from "./format.js";
 import { renderJson, renderPlain, worstBand, type Snapshot } from "./plain.js";
 
 const paused: TierPublication = {
@@ -39,6 +40,45 @@ const publishedBoard: Board = {
   as_of: "2026-11-03", tier_publication: { ...paused, state: "published" },
   rows: [row("alpha", 0.0026, "A"), row("beta", 0.0021, "AA")],
 };
+
+const publicRow: PublicBoardRow = {
+  slug: "alpha", name: "Alpha Bank", inst_type: "sfb", as_of: "2026-09-30", quarter: "FY27Q2",
+  score: 81, pd_12m: 0.0026, pd_24m: 0.0053, pd_36m: 0.0079, delta_pd_12m: 0,
+  funding_index: 9.5, rbi_zone: "not_applicable",
+};
+
+test("anonymous and cached flat rows retain exactly the available figures and access limits", () => {
+  const access = { tier: "anonymous", withheld: [{ depth: "radar.full" }] };
+  const missing = { ...publicRow, slug: "beta", name: "Beta Bank", pd_12m: null, delta_pd_12m: null };
+  const board: Board = { ...pausedBoard, rows: [missing, { ...publicRow, grade: "AA" }], access };
+  const text = renderPlain(snap(board));
+  assert.match(text, /Alpha Bank.*0\.26%.*index 9\.5/);
+  assert.match(text, /Beta Bank.*n\/a.*n\/a/);
+  assert.doesNotMatch(text, /NaN|undefined|\bAA\b/);
+  assert.equal(sortRows(board.rows, "movement")[0].slug, "alpha");
+  const out = JSON.parse(renderJson(snap(board)));
+  assert.deepEqual(out.access, access);
+  assert.equal(out.rows[0].pd_12m, publicRow.pd_12m);
+  assert.equal(out.rows[1].pd_12m, null);
+  for (const entry of out.rows) {
+    assert.equal(entry.pd_research_only, true);
+    for (const key of ["grade", "hazard", "risk_band", "funding", "forensics"]) {
+      assert.equal(entry[key], undefined);
+    }
+  }
+  assert.equal(worstBand(snap(board)), null);
+});
+
+test("published tiers allow served grades but cannot establish a band from a public summary", () => {
+  const board = { ...publishedBoard, rows: [{ ...publicRow, grade: "A" }] };
+  assert.equal(worstBand(snap(board)), null);
+  assert.equal(worstBand(snap({ ...board, rows: [...publishedBoard.rows, publicRow] })), null);
+  assert.equal(worstBand(snap({ ...board, rows: [] })), null);
+  assert.match(renderPlain(snap(board)), /Alpha Bank.*index 9\.5.*n\/a/);
+  const out = JSON.parse(renderJson(snap(board)));
+  assert.equal(out.rows[0].grade, "A");
+  assert.equal(out.rows[0].risk_band, undefined);
+});
 
 test("paused plain table shows no grade, band or band word", () => {
   const text = renderPlain(snap(pausedBoard));

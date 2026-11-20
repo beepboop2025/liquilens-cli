@@ -1,6 +1,7 @@
-import type { BoardRow, USRow } from "./api.js";
+import { hasRadarDetail, probabilities, probabilityChange, type IndiaRow, type USRow } from "./api.js";
 
-export const pct = (x: number) => `${(x * 100).toFixed(2)}%`;
+export const pct = (x: number | null | undefined) =>
+  x == null ? "n/a" : `${(x * 100).toFixed(2)}%`;
 
 /** Fraction -> "17.0%", tolerating missing values. */
 export const pct1 = (x: number | null | undefined) =>
@@ -37,7 +38,8 @@ export function sparkline(values: number[], width: number): string {
 
 export type MoveDir = "up" | "down" | "flat";
 
-export function movement(delta: number): { text: string; dir: MoveDir } {
+export function movement(delta: number | null | undefined): { text: string; dir: MoveDir } {
+  if (delta == null) return { text: "n/a", dir: "flat" };
   if (delta > 0.0005) return { text: `▲ ${pct(delta)}`, dir: "up" };
   if (delta < -0.0005) return { text: `▼ ${pct(Math.abs(delta))}`, dir: "down" };
   return { text: "─", dir: "flat" };
@@ -45,6 +47,11 @@ export function movement(delta: number): { text: string; dir: MoveDir } {
 
 export function fundingLabel(band: string): string {
   return band === "not_scored" ? "n/a" : band;
+}
+
+export function fundingSummary(row: IndiaRow): string {
+  if (hasRadarDetail(row)) return fundingLabel(row.funding.band);
+  return row.funding_index == null ? "n/a" : `index ${row.funding_index}`;
 }
 
 export interface Cols {
@@ -85,14 +92,14 @@ export type SortMode = "risk" | "movement" | "score" | "name";
 
 export const SORT_MODES: SortMode[] = ["risk", "movement", "score", "name"];
 
-export function sortRows(rows: BoardRow[], mode: SortMode): BoardRow[] {
+export function sortRows(rows: IndiaRow[], mode: SortMode): IndiaRow[] {
   const sorted = [...rows];
   switch (mode) {
     case "risk":
-      sorted.sort((a, b) => b.hazard.pd_12m - a.hazard.pd_12m);
+      sorted.sort((a, b) => (probabilities(b).pd_12m ?? -Infinity) - (probabilities(a).pd_12m ?? -Infinity));
       break;
     case "movement":
-      sorted.sort((a, b) => b.movement.delta_pd_12m - a.movement.delta_pd_12m);
+      sorted.sort((a, b) => (probabilityChange(b) ?? -Infinity) - (probabilityChange(a) ?? -Infinity));
       break;
     case "score":
       sorted.sort((a, b) => a.score - b.score);
@@ -104,7 +111,7 @@ export function sortRows(rows: BoardRow[], mode: SortMode): BoardRow[] {
   return sorted;
 }
 
-export function filterRows(rows: BoardRow[], query: string): BoardRow[] {
+export function filterRows(rows: IndiaRow[], query: string): IndiaRow[] {
   const q = query.trim().toLowerCase();
   if (!q) return rows;
   return rows.filter(
