@@ -1,6 +1,7 @@
+import { hasRadarDetail, probabilities, probabilityChange } from "./api.js";
 import type {
   Board,
-  BoardRow,
+  IndiaRow,
   EvidenceMarketsResponse,
   HistoricalEvidenceStatus,
   MarketRegime,
@@ -11,7 +12,7 @@ import {
   computeCols,
   computeUSCols,
   fmtAssets,
-  fundingLabel,
+  fundingSummary,
   movement,
   pct,
   pct1,
@@ -44,7 +45,9 @@ export function worstBand(snap: Snapshot): RiskBand | null {
     // absolute alerting (enforced at arg-parse time).
     return snap.board.board.length > 0 ? "red" : "green";
   }
-  if (!tiersPublished(snap.board)) return null;
+  if (!tiersPublished(snap.board) || !snap.board.rows.length || !snap.board.rows.every(hasRadarDetail)) {
+    return null;
+  }
   let worst: RiskBand = "green";
   for (const row of snap.board.rows) {
     const b = riskBand(row);
@@ -62,7 +65,7 @@ export function renderPlain(snap: Snapshot, width = 100): string {
   lines.push(
     `LIQUILENS Failure Radar · INDIA · board as of ${snap.board.as_of}`,
   );
-  if (snap.regime) {
+  if (snap.regime?.available) {
     lines.push(
       `market regime ${snap.regime.regime} (log-SR ${snap.regime.log_sr_now.toFixed(2)}, ` +
         `last change ${snap.regime.trading_days_since_last_change}d ago) · ${snap.regime.as_of}`,
@@ -71,6 +74,9 @@ export function renderPlain(snap: Snapshot, width = 100): string {
   lines.push(...staleLine(snap.stale));
   const published = tiersPublished(snap.board);
   if (!published) lines.push(pausedLine(snap.board));
+  if (snap.board.rows.some((row) => !hasRadarDetail(row))) {
+    lines.push("Rows in the public summary show a funding index. Detailed risk inputs are withheld.");
+  }
   lines.push("");
   lines.push(
     "  " +
@@ -89,11 +95,11 @@ export function renderPlain(snap: Snapshot, width = 100): string {
         cell(row.inst_type, cols.type) +
         (published ? cell(row.grade ?? "", cols.grade) : "") +
         cell(String(row.score), cols.score) +
-        cell(pct(row.hazard.pd_12m), cols.pd) +
-        cell(movement(row.movement.delta_pd_12m).text, cols.move) +
+        cell(pct(probabilities(row).pd_12m), cols.pd) +
+        cell(movement(probabilityChange(row)).text, cols.move) +
         (published
-          ? cell(fundingLabel(row.funding.band), 9) + riskBand(row).toUpperCase()
-          : fundingLabel(row.funding.band)),
+          ? fundingSummary(row).padEnd(12) + (hasRadarDetail(row) ? riskBand(row).toUpperCase() : "n/a")
+          : fundingSummary(row)),
     );
   }
   if (!published) lines.push("* research only while review tiers are paused");
@@ -148,10 +154,14 @@ function renderPlainUS(
 }
 
 /** A row as research only: no grade letter even from an older cached board. */
-function researchRow(r: BoardRow): Record<string, unknown> {
+function researchRow(r: IndiaRow): Record<string, unknown> {
   const withoutGrade = <T extends object>(o: T) =>
     Object.fromEntries(Object.entries(o).filter(([k]) => k !== "grade" && k !== "tier"));
-  return { ...withoutGrade(r), hazard: withoutGrade(r.hazard), pd_research_only: true };
+  return {
+    ...withoutGrade(r),
+    ...(hasRadarDetail(r) ? { hazard: withoutGrade(r.hazard) } : {}),
+    pd_research_only: true,
+  };
 }
 
 /** Machine-readable dump for `--json`. */
@@ -179,9 +189,12 @@ export function renderJson(snap: Snapshot): string {
       stale: snap.stale ? { cached_at: snap.stale.savedAt } : null,
       market_regime: snap.regime,
       tier_publication: snap.board.tier_publication ?? null,
-      rows: sortRows(snap.board.rows, "risk").map((r) =>
-        published ? { ...r, risk_band: riskBand(r) } : researchRow(r),
-      ),
+      ...(snap.board.access ? { access: snap.board.access } : {}),
+      ...(snap.board.historical_evidence ? { historical_evidence: snap.board.historical_evidence } : {}),
+      rows: sortRows(snap.board.rows, "risk").map((row) => {
+        if (!published) return researchRow(row);
+        return hasRadarDetail(row) ? { ...row, risk_band: riskBand(row) } : row;
+      }),
     },
     null,
     2,

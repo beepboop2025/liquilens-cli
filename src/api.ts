@@ -87,6 +87,32 @@ export interface BoardRow {
   } | null;
 }
 
+/** The anonymous radar view serves current figures without their detailed inputs. */
+export interface PublicBoardRow
+  extends Pick<BoardRow, "slug" | "name" | "inst_type" | "as_of" | "quarter" | "score" | "grade"> {
+  pd_12m: number | null;
+  pd_24m: number | null;
+  pd_36m: number | null;
+  delta_pd_12m: number | null;
+  funding_index: number | null;
+  rbi_zone: string | null;
+  pd_research_only?: boolean;
+}
+
+export type IndiaRow = BoardRow | PublicBoardRow;
+
+export function hasRadarDetail(row: IndiaRow): row is BoardRow {
+  return "hazard" in row;
+}
+
+export function probabilities(row: IndiaRow) {
+  return hasRadarDetail(row) ? row.hazard : row;
+}
+
+export function probabilityChange(row: IndiaRow) {
+  return hasRadarDetail(row) ? row.movement.delta_pd_12m : row.delta_pd_12m;
+}
+
 /** The API's one tier-publication switch, served with every India board. */
 export interface TierPublication {
   state: string;
@@ -98,7 +124,9 @@ export interface TierPublication {
 
 export interface Board {
   as_of: string;
-  rows: BoardRow[];
+  rows: IndiaRow[];
+  access?: Record<string, unknown>;
+  historical_evidence?: HistoricalEvidenceStatus;
   method_note?: string;
   tier_publication?: TierPublication;
 }
@@ -140,7 +168,7 @@ export interface USBoard {
   };
 }
 
-export interface NewsSignal {
+interface ComputedNewsSignal {
   slug: string;
   attention_z: number;
   tone_recent: number;
@@ -151,6 +179,8 @@ export interface NewsSignal {
   stale: boolean;
   basis: string[];
 }
+
+export type NewsSignal = ComputedNewsSignal | { slug: string; not_computed: string };
 
 export interface HistoricalEvidenceStatus {
   status: string;

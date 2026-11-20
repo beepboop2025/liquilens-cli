@@ -71,8 +71,7 @@ Options:
   --fail-on <band>   exit 3 if any institution is at/above band (amber|red).
                      India board only; the US board is a relative leaderboard.
                      Implies --plain unless --json is given. For cron/CI alerts.
-                     While the API pauses India review tiers it exits 4
-                     instead: there is no band to compare.
+                     Exits 4 if tiers are paused or detailed inputs are unavailable.
   --api <url>        API host (default ${DEFAULT_API}; env LIQUILENS_API)
   -h, --help         show this help
   -v, --version      show version
@@ -85,7 +84,7 @@ Keys (interactive): ↑↓/jk select · ⏎ detail · t region · s sort · / fi
                     r refresh · q quit
 Exit codes: 0 ok · 1 no data (API down and no cache) · 2 bad usage ·
             3 --fail-on threshold breached ·
-            4 --fail-on not evaluated: review tiers paused (research only)`;
+            4 --fail-on could not evaluate the board (tiers paused or detailed inputs unavailable)`;
 
 function fail(msg: string, code: number): never {
   process.stderr.write(`liquilens: ${msg}\n`);
@@ -260,8 +259,7 @@ if (parsed.record) {
     if (worst === null) {
       // Never a silent pass: a paused board is not a calm board.
       process.stderr.write(
-        `liquilens: --fail-on ${parsed.failOn} not evaluated: India review tiers ` +
-          "are paused (research only), so there is no band to compare\n",
+        `liquilens: --fail-on ${parsed.failOn} not evaluated: published tiers and detailed risk inputs are required\n`,
       );
       process.exit(4);
     }

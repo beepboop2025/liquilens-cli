@@ -22,10 +22,10 @@ review tiers paused since 2026-11-03: tiers paused, research only; no grade, ban
 
 Two boards, one command:
 
-- **IN** (Indian banks, SFBs, NBFCs and MFIs): score, 12/24/36-month
-  failure probabilities, funding bands, PCA status, forensics, market lens,
-  GDELT news watch. Grades and row colours appear only while the API
-  publishes India review tiers; see "While India review tiers are paused".
+- **IN** covers Indian banks, SFBs, NBFCs and MFIs. The public summary shows
+  the score, 12/24/36-month research probabilities, funding index and RBI zone.
+  Detail depends on what the API serves. Grades require published review
+  tiers. Risk bands also require the underlying inputs.
 - **US** (the riskiest tail of 1,000+ FDIC-scored banks, undertow engine):
   within-quarter percentile score, noncurrent assets, uninsured/brokered
   deposits, CRE concentration, NDFI-to-tier-1.
@@ -71,9 +71,9 @@ liquilens
   preserve the served `/api/evidence/markets` payload exactly. It cannot be
   combined with `--region` or `--fail-on`.
 - **`--fail-on amber|red`**: alerting for cron/CI. Exits 3 when any Indian
-  institution is at/above the band, 0 when none is, and 4 when the API has
-  paused India review tiers (there is no band to compare, so the check is
-  not evaluated). India only: US scores are within-quarter percentile ranks,
+  institution is at/above the band, 0 when all are below it, and 4 when the
+  tiers are paused or the board lacks the detailed inputs for a comparison.
+  On the US board, scores are within-quarter percentile ranks,
   a relative leaderboard, so an absolute threshold would always fire.
 
 ```bash
@@ -148,7 +148,7 @@ and machine details are never sent as analytics.
 ## Exit codes
 
 0 ok · 1 no data (API down, no cache) · 2 bad usage · 3 `--fail-on` breached ·
-4 `--fail-on` not evaluated (India review tiers paused)
+4 `--fail-on` could not evaluate the board (tiers paused or detailed inputs unavailable)
 
 ## Config
 
