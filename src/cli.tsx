@@ -9,11 +9,15 @@ import {
   fetchEvidenceMarkets,
   fetchRegime,
   fetchUSBoard,
+  lookupContext,
   setApiBase,
   setClientVersion,
   getApiBase,
   DEFAULT_API,
+  LENS_VIEWS,
   type Board,
+  type LensAnswer,
+  type LensView,
   type MarketRegime,
   type USBoard,
 } from "./api.js";
@@ -28,6 +32,8 @@ import {
   renderEvidenceJson,
   renderEvidenceRecord,
   renderJson,
+  renderLens,
+  renderLensJson,
   renderPlain,
   worstBand,
   type Snapshot,
@@ -56,6 +62,7 @@ setClientVersion(version);
 const HELP = `liquilens ${version}: LiquiLens Failure Radar in your terminal
 
 Usage: liquilens [options]
+       liquilens lens <name, key or id> [--view <view>] [--as-of <date>] [--json] [--api <url>]
 
 Runs an interactive dashboard when attached to a terminal; falls back to a
 plain table when piped. Data comes from public, no-auth LiquiLens endpoints.
@@ -76,6 +83,18 @@ Options:
   -h, --help         show this help
   -v, --version      show version
 
+Ontology lens (one-shot):
+  lens <query>       resolve a name, any key (CIN, LEI, ISIN, CUSIP, slug) or a
+                     canonical id, then print the object's identity, keys,
+                     links, events and every product read (LiquiLens, Seiche,
+                     Undertow, Palimpsest) that serves data about it. Identity
+                     and routing only, not evidence: the product that answers
+                     owns its answer.
+  --view <view>      summary (default), relationships, timeline, provenance or
+                     neighbourhood
+  --as-of <date>     read the name and the view on YYYY-MM-DD
+  --json             the payload the API served, unchanged
+
 Environment:
   LIQUILENS_API      same as --api
   HTTPS_PROXY        honored for all requests (CONNECT proxy)
@@ -84,7 +103,9 @@ Keys (interactive): ↑↓/jk select · ⏎ detail · t region · s sort · / fi
                     r refresh · q quit
 Exit codes: 0 ok · 1 no data (API down and no cache) · 2 bad usage ·
             3 --fail-on threshold breached ·
-            4 --fail-on could not evaluate the board (tiers paused or detailed inputs unavailable)`;
+            4 --fail-on could not evaluate the board (tiers paused or detailed inputs unavailable)
+            lens: 0 answered (resolved, ambiguous or not found) · 1 the API
+            could not answer (unreachable, an error, or no context route)`;
 
 function fail(msg: string, code: number): never {
   process.stderr.write(`liquilens: ${msg}\n`);
@@ -96,6 +117,14 @@ interface Args {
   region: Region;
   failOn: RiskBand | null;
   record: boolean;
+  lens: { query: string; view: LensView; asOf: string | null } | null;
+}
+
+/** A calendar date written YYYY-MM-DD (no rollover: 2026-02-30 is refused). */
+function isDay(text: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+  const day = new Date(`${text}T00:00:00Z`);
+  return !Number.isNaN(day.getTime()) && day.toISOString().slice(0, 10) === text;
 }
 
 export function parseArgs(
@@ -107,7 +136,12 @@ export function parseArgs(
   let regionExplicit = false;
   let failOn: RiskBand | null = null;
   let record = false;
-  for (let i = 0; i < argv.length; i++) {
+  const lens = argv[0] === "lens";
+  let query: string | null = null;
+  let view: LensView = "summary";
+  let viewExplicit = false;
+  let asOf: string | null = null;
+  for (let i = lens ? 1 : 0; i < argv.length; i++) {
     const arg = argv[i]!;
     switch (arg) {
       case "-h":
@@ -147,9 +181,45 @@ export function parseArgs(
         setApiBase(url);
         break;
       }
+      case "--view": {
+        const v = argv[++i];
+        if (!LENS_VIEWS.includes(v as LensView))
+          fail(`--view must be one of ${LENS_VIEWS.join(", ")}, got "${v ?? ""}"`, 2);
+        view = v as LensView;
+        viewExplicit = true;
+        break;
+      }
+      case "--as-of": {
+        const d = argv[++i];
+        if (!d || !isDay(d)) fail(`--as-of must be a date written YYYY-MM-DD, got "${d ?? ""}"`, 2);
+        asOf = d;
+        break;
+      }
       default:
+        if (lens && !arg.startsWith("-")) {
+          if (query !== null)
+            fail(`lens takes one query; quote a name with spaces, as in liquilens lens "IDBI Bank Ltd"`, 2);
+          query = arg;
+          break;
+        }
         fail(`unknown option "${arg}" (try --help)`, 2);
     }
+  }
+  if (!lens && (viewExplicit || asOf !== null))
+    fail("--view and --as-of work with lens only (try --help)", 2);
+  if (lens) {
+    if (regionExplicit || record || failOn)
+      fail("lens cannot be combined with --region, --record or --fail-on; it reads one object", 2);
+    const text = (query ?? "").trim();
+    if (text.length < 1 || text.length > 200)
+      fail(`lens needs a name, key or id of 1 to 200 characters, as in liquilens lens "IDBI Bank Ltd"`, 2);
+    return {
+      mode: mode === "json" ? "json" : "plain",
+      region,
+      failOn,
+      record,
+      lens: { query: text, view, asOf },
+    };
   }
   if (failOn && region === "us")
     fail(
@@ -164,7 +234,7 @@ export function parseArgs(
     fail("--record cannot be combined with --fail-on; evidence eligibility is not a risk band", 2);
   if (record && mode === null) mode = "plain";
   if (failOn && mode === null) mode = "plain";
-  return { mode: mode ?? (isTTY ? "tui" : "plain"), region, failOn, record };
+  return { mode: mode ?? (isTTY ? "tui" : "plain"), region, failOn, record, lens: null };
 }
 
 async function snapshotOnce(region: Region): Promise<Snapshot> {
@@ -230,7 +300,19 @@ if ("exit" in parsed) {
   process.exit(0);
 }
 
-if (parsed.record) {
+if (parsed.lens) {
+  let answer: LensAnswer;
+  try {
+    answer = await lookupContext(parsed.lens.query, parsed.lens.view, parsed.lens.asOf);
+  } catch (err) {
+    fail(
+      `could not read the ontology context from ${getApiBase()} ` +
+        `(${err instanceof Error ? err.message : String(err)})`,
+      1,
+    );
+  }
+  console.log(parsed.mode === "json" ? renderLensJson(answer) : renderLens(answer));
+} else if (parsed.record) {
   try {
     const record = await fetchEvidenceMarkets();
     console.log(
