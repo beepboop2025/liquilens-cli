@@ -4,6 +4,7 @@ import type {
   IndiaRow,
   EvidenceMarketsResponse,
   HistoricalEvidenceStatus,
+  LensAnswer,
   MarketRegime,
   USBoard,
 } from "./api.js";
@@ -235,4 +236,95 @@ export function renderEvidenceRecord(record: EvidenceMarketsResponse): string {
 /** Preserve the API payload exactly for agents and scripts. */
 export function renderEvidenceJson(record: EvidenceMarketsResponse): string {
   return JSON.stringify(record, null, 2);
+}
+
+/**
+ * The ontology lens for people: identity, keys, links, events and one line per
+ * coverage route. What the API withheld or trimmed is said up front, so a
+ * partial answer never reads as a complete one.
+ */
+export function renderLens(answer: LensAnswer): string {
+  const lines = ["LIQUILENS · ONTOLOGY CONTEXT"];
+  if (answer.status === "ambiguous") {
+    lines.push(`"${answer.query}" names more than one object, and none is picked.`);
+    for (const candidate of answer.resolve.candidates ?? []) lines.push(`  ${candidate}`);
+    lines.push("Ask again with one of these ids, or with a key such as a CIN.");
+    return lines.join("\n");
+  }
+  if (answer.status === "not_found") {
+    lines.push(
+      answer.context
+        ? `"${answer.query}" resolved to ${answer.resolve.id}, but the context route knows no object with that id.`
+        : `"${answer.query}": not found. No object carries that name or key, and nothing is guessed or minted.`,
+    );
+    return lines.join("\n");
+  }
+  const { context, resolve } = answer;
+  if (context.boundary) lines.push(context.boundary);
+  for (const withheld of context.access?.withheld ?? []) {
+    const needs = withheld.requires ? `; needs a ${withheld.requires} key` : "";
+    lines.push(`withheld for this caller: ${withheld.depth}` + (withheld.what ? ` (${withheld.what}${needs})` : needs));
+  }
+  if (context.access?.withheld?.length && context.access.how_to_get_access) {
+    lines.push(context.access.how_to_get_access);
+  }
+  const cuts = Object.entries(context.trimmed ?? {});
+  if (cuts.length) {
+    lines.push(`trimmed to fit the response budget: ${cuts.map(([path, n]) => `${path} ${n}`).join(", ")}`);
+  }
+  lines.push("", "IDENTITY", `  ${context.label}`, `  id: ${context.id}`);
+  lines.push(`  kind: ${context.kind} · jurisdiction: ${context.jurisdiction} · authority: ${context.authority}`);
+  lines.push(
+    `  resolved from "${answer.query}" by ${resolve.rule ?? "the API"}` +
+      (resolve.as_of ? `, as of ${resolve.as_of}` : ""),
+  );
+  if (context.redirected_from) lines.push(`  redirected from: ${context.redirected_from}`);
+  if (context.note) lines.push(`  note: ${context.note}`);
+
+  lines.push("", "KEYS");
+  const keys = Object.entries(context.keys ?? {}).sort(([a], [b]) => a.localeCompare(b));
+  for (const [space, key] of keys) lines.push(`  ${space}: ${key}`);
+  if (!keys.length) lines.push("  none served");
+
+  const links = context.links ?? { total: 0, by_kind: {}, sample: [] };
+  const kinds = Object.entries(links.by_kind ?? {}).map(([kind, n]) => `${kind} ${n}`);
+  lines.push("", `LINKS · ${links.total} in all` + (kinds.length ? ` (${kinds.join(", ")})` : ""));
+  for (const link of links.sample ?? []) {
+    lines.push(`  ${link.direction} ${link.kind} ${link.id}` + (link.label ? ` (${link.label})` : ""));
+  }
+  if ((links.sample ?? []).length < links.total) {
+    lines.push(`  ${(links.sample ?? []).length} of ${links.total} shown`);
+  }
+
+  lines.push("", "EVENTS");
+  for (const event of context.events ?? []) {
+    lines.push(`  ${event.date ?? "undated"} ${event.id}`);
+    if (event.label) lines.push(`    ${event.label}`);
+  }
+  if (!(context.events ?? []).length) lines.push("  no event object concerns this object");
+
+  lines.push("", "COVERAGE · most specific first");
+  (context.coverage ?? []).forEach((entry, i) => {
+    lines.push(`  ${i + 1}. ${entry.product} · ${entry.topic}`);
+    if (entry.mcp) {
+      lines.push(`     mcp: ${entry.mcp.tool} ${JSON.stringify(entry.mcp.arguments ?? {})} on ${entry.mcp.server}`);
+    }
+    if (entry.rest) lines.push(`     rest: ${entry.rest}`);
+    if (entry.site) lines.push(`     site: ${entry.site}`);
+  });
+  if (!(context.coverage ?? []).length) {
+    lines.push("  no product read is routed for this object; that says nothing about the object itself");
+  }
+
+  if (context.view) {
+    lines.push("", `VIEW · ${answer.view}`);
+    for (const line of JSON.stringify(context.view, null, 2).split("\n")) lines.push(`  ${line}`);
+  }
+  lines.push("", `source: ${answer.url}`);
+  return lines.join("\n");
+}
+
+/** The payload the API served, exactly: the context when the query resolved, else the resolve answer. */
+export function renderLensJson(answer: LensAnswer): string {
+  return JSON.stringify(answer.context ?? answer.resolve, null, 2);
 }
