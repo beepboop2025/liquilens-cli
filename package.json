@@ -1,6 +1,6 @@
 {
   "name": "liquilens",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "description": "LiquiLens Failure Radar in your terminal: a live early-warning board for Indian institutions and FDIC-scored US banks, from public data",
   "license": "SEE LICENSE IN LICENSE.md",
   "homepage": "https://liquilens.in/developers/",
