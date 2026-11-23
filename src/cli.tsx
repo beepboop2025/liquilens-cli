@@ -59,7 +59,7 @@ const require = createRequire(import.meta.url);
 const { version } = require("../package.json") as { version: string };
 setClientVersion(version);
 
-const HELP = `liquilens ${version}: LiquiLens Failure Radar in your terminal
+const HELP = `liquilens ${version}: LiquiLens in your terminal
 
 Usage: liquilens [options]
        liquilens lens <name, key or id> [--view <view>] [--as-of <date>] [--json] [--api <url>]

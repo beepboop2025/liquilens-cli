@@ -1,7 +1,7 @@
 {
   "name": "liquilens",
-  "version": "0.6.0",
-  "description": "LiquiLens Failure Radar in your terminal: a live early-warning board for Indian institutions and FDIC-scored US banks, from public data",
+  "version": "0.6.1",
+  "description": "LiquiLens in your terminal: research boards for Indian lenders and FDIC-scored US banks from public filings, plus the ontology lens. No keys needed.",
   "license": "SEE LICENSE IN LICENSE.md",
   "homepage": "https://liquilens.in/developers/",
   "repository": {
@@ -17,12 +17,13 @@
     "tui",
     "finance",
     "risk",
-    "early-warning",
     "bank-failure",
     "fdic",
     "rbi",
     "liquidity",
-    "terminal-dashboard"
+    "terminal-dashboard",
+    "ontology",
+    "public-filings"
   ],
   "type": "module",
   "bin": {
