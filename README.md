@@ -1,11 +1,11 @@
 # liquilens: the terminal
 
-The LiquiLens Failure Radar as a live terminal dashboard, in the spirit of
+The LiquiLens research boards as a live terminal dashboard, in the spirit of
 Claude Code / htop. Zero keys required: it reads the same public, no-auth
 endpoints that power the web board, and keeps working offline from a cached
 snapshot.
 
-Need the radar on your own counterparty or borrower book? A fixed-scope,
+Need this on your own counterparty or borrower book? A fixed-scope,
 self-hosted proof pilot is available at
 [liquilens.in/pilot](https://liquilens.in/pilot/).
 
